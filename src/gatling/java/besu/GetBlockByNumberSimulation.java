@@ -9,6 +9,7 @@ import static io.gatling.javaapi.http.HttpDsl.*;
 
 import io.gatling.javaapi.core.*;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -82,8 +83,8 @@ public class GetBlockByNumberSimulation extends Simulation {
             getBlockNumber
                 .injectOpen(atOnceUsers(1))
                 .andThen(
-                    getLatestBlock.injectOpen(constantUsersPerSec(2).during(15)),
-                    getRandomBlock.injectOpen(constantUsersPerSec(2).during(15))))
+                    getLatestBlock.injectOpen(constantUsersPerSec(5).during(Duration.ofMinutes(5))),
+                    getRandomBlock.injectOpen(constantUsersPerSec(5).during(Duration.ofMinutes(5)))))
         .protocols(
             http.baseUrl(baseUrl)
                 .acceptHeader("*/*")
