@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+    // The following line allows to load io.gatling.gradle plugin and directly apply it
+    id 'io.gatling.gradle' version '3.7.6.3'
+    id "com.diffplug.spotless" version "6.8.0"
+}
+
+gatling {
+  // WARNING: options below only work when logback config file isn't provided
+  logLevel = 'INFO' // logback root level
+  logHttp = 'ALL' // set to 'ALL' for all HTTP traffic in TRACE, 'FAILURES' for failed HTTP traffic in DEBUG
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+dependencies {
+    gatlingImplementation 'org.apache.commons:commons-lang3:3.12.0'
+}
+
+spotless {
+    java {
+        googleJavaFormat()
+    }
+}
+
+// maven central is added by default, uncomment and add more custom repositories
+//repositories {
+//    mavenCentral()
+//}
