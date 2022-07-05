@@ -7,7 +7,7 @@ public class JsonApiCalls {
                 "jsonrpc": "2.0",
                 "method": "eth_blockNumber",
                 "params": [],
-                "id": 1
+                "id": #{id}
             }
             """;
   public static final String ethGetBlockByNumberLatest =

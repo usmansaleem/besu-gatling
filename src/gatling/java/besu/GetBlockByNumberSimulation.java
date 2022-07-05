@@ -22,10 +22,23 @@ public class GetBlockByNumberSimulation extends Simulation {
   final Integer port = Integer.getInteger("besu-rpc-port", 8545);
   final String baseUrl = "http://" + host + ":" + port;
 
+  // will be updated on the first call of getBlockNumber scenario
   final AtomicLong blockNumber = new AtomicLong();
 
   // feed random id and block number
-  final Iterator<Map<String, Object>> feeder =
+  final Iterator<Map<String, Object>> latestBlockFeeder =
+      Stream.generate((Supplier<Map<String, Object>>) () -> Map.of("id", RandomUtils.nextLong()))
+          .iterator();
+
+  final Iterator<Map<String, Object>> healthCheckFeeder =
+      Stream.generate((Supplier<Map<String, Object>>) () -> Map.of("id", RandomUtils.nextLong()))
+          .iterator();
+
+  final Iterator<Map<String, Object>> getBlockNumberFeed =
+      Stream.generate((Supplier<Map<String, Object>>) () -> Map.of("id", RandomUtils.nextLong()))
+          .iterator();
+
+  final Iterator<Map<String, Object>> randomBlockFeeder =
       Stream.generate(
               (Supplier<Map<String, Object>>)
                   () ->
@@ -39,8 +52,9 @@ public class GetBlockByNumberSimulation extends Simulation {
   // fetch the latest block number at start of test execution
   final ScenarioBuilder getBlockNumber =
       scenario("Get Block Number")
+          .feed(getBlockNumberFeed)
           .exec(
-              http("eth_blockNumber")
+              http("Get Block Number (start)")
                   .post("/")
                   .body(StringBody(ethGetBlockNumber))
                   .asJson()
@@ -55,9 +69,19 @@ public class GetBlockByNumberSimulation extends Simulation {
                 return session;
               });
 
+  final ScenarioBuilder healthCheck =
+      scenario("Health Check")
+          .feed(healthCheckFeeder)
+          .exec(
+              http("Get Block Number (Health check)")
+                  .post("/")
+                  .body(StringBody(ethGetBlockNumber))
+                  .asJson()
+                  .check(status().is(200)));
+
   final ScenarioBuilder getLatestBlock =
       scenario("Get Latest Block")
-          .feed(feeder)
+          .feed(latestBlockFeeder)
           .exec(
               http("get latest block")
                   .post("/")
@@ -68,7 +92,7 @@ public class GetBlockByNumberSimulation extends Simulation {
 
   final ScenarioBuilder getRandomBlock =
       scenario("Get Random Block")
-          .feed(feeder)
+          .feed(randomBlockFeeder)
           .exec(
               http("get random block")
                   .post("/")
@@ -78,13 +102,15 @@ public class GetBlockByNumberSimulation extends Simulation {
                   .check(jsonPath("$.id").isEL("#{id}")));
 
   {
-      System.out.println("Running Gatling Scenarios on " + baseUrl);
-      setUp(
+    System.out.println("Running Gatling Scenarios on " + baseUrl);
+    setUp(
             getBlockNumber
                 .injectOpen(atOnceUsers(1))
                 .andThen(
-                    getLatestBlock.injectOpen(constantUsersPerSec(5).during(Duration.ofMinutes(5))),
-                    getRandomBlock.injectOpen(constantUsersPerSec(5).during(Duration.ofMinutes(5)))))
+                    healthCheck.injectOpen(constantUsersPerSec(1).during(Duration.ofMinutes(5))),
+                    getLatestBlock.injectOpen(constantUsersPerSec(2).during(Duration.ofMinutes(5))),
+                    getRandomBlock.injectOpen(
+                        constantUsersPerSec(2).during(Duration.ofMinutes(5)))))
         .protocols(
             http.baseUrl(baseUrl)
                 .acceptHeader("*/*")
