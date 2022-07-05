@@ -7,15 +7,11 @@ import static io.gatling.javaapi.core.CoreDsl.*;
 import static io.gatling.javaapi.core.CoreDsl.scenario;
 import static io.gatling.javaapi.http.HttpDsl.*;
 
+import besu.feeders.RandomBlockNumberFeeder;
+import besu.feeders.RandomIdFeeder;
 import io.gatling.javaapi.core.*;
 import java.math.BigInteger;
 import java.time.Duration;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
-import org.apache.commons.lang3.RandomUtils;
 
 public class GetBlockByNumberSimulation extends Simulation {
   final String host = System.getProperty("besu-rpc-host", "localhost");
@@ -23,36 +19,12 @@ public class GetBlockByNumberSimulation extends Simulation {
   final String baseUrl = "http://" + host + ":" + port;
 
   // will be updated on the first call of getBlockNumber scenario
-  final AtomicLong blockNumber = new AtomicLong();
-
-  // feed random id and block number
-  final Iterator<Map<String, Object>> latestBlockFeeder =
-      Stream.generate((Supplier<Map<String, Object>>) () -> Map.of("id", RandomUtils.nextLong()))
-          .iterator();
-
-  final Iterator<Map<String, Object>> healthCheckFeeder =
-      Stream.generate((Supplier<Map<String, Object>>) () -> Map.of("id", RandomUtils.nextLong()))
-          .iterator();
-
-  final Iterator<Map<String, Object>> getBlockNumberFeed =
-      Stream.generate((Supplier<Map<String, Object>>) () -> Map.of("id", RandomUtils.nextLong()))
-          .iterator();
-
-  final Iterator<Map<String, Object>> randomBlockFeeder =
-      Stream.generate(
-              (Supplier<Map<String, Object>>)
-                  () ->
-                      Map.of(
-                          "id",
-                          RandomUtils.nextLong(),
-                          "blockNumber",
-                          RandomUtils.nextLong(0, blockNumber.get())))
-          .iterator();
+  final RandomBlockNumberFeeder randomBlockNumberFeeder = new RandomBlockNumberFeeder();
 
   // fetch the latest block number at start of test execution
   final ScenarioBuilder getBlockNumber =
       scenario("Get Block Number")
-          .feed(getBlockNumberFeed)
+          .feed(new RandomIdFeeder().getRandomIdFeeder())
           .exec(
               http("Get Block Number (start)")
                   .post("/")
@@ -62,16 +34,15 @@ public class GetBlockByNumberSimulation extends Simulation {
                   .check(jsonPath("$.result").saveAs("blockNumber")))
           .exec(
               session -> {
-                blockNumber.set(
+                randomBlockNumberFeeder.setHighestBlockNumber(
                     new BigInteger(session.get("blockNumber").toString().substring(2), 16)
                         .longValue());
-                System.out.println("Block Number:" + blockNumber.get());
                 return session;
               });
 
   final ScenarioBuilder healthCheck =
       scenario("Health Check")
-          .feed(healthCheckFeeder)
+          .feed(new RandomIdFeeder().getRandomIdFeeder())
           .exec(
               http("Get Block Number (Health check)")
                   .post("/")
@@ -81,7 +52,7 @@ public class GetBlockByNumberSimulation extends Simulation {
 
   final ScenarioBuilder getLatestBlock =
       scenario("Get Latest Block")
-          .feed(latestBlockFeeder)
+          .feed(new RandomIdFeeder().getRandomIdFeeder())
           .exec(
               http("get latest block")
                   .post("/")
@@ -92,7 +63,7 @@ public class GetBlockByNumberSimulation extends Simulation {
 
   final ScenarioBuilder getRandomBlock =
       scenario("Get Random Block")
-          .feed(randomBlockFeeder)
+          .feed(randomBlockNumberFeeder.getRandomBlockFeeder())
           .exec(
               http("get random block")
                   .post("/")
